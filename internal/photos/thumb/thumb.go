@@ -60,6 +60,20 @@ func cacheKey(href, etag string, maxSize int) string {
 // genera la miniatura.
 const thumbCacheVersion = "v2"
 
+// ETag devuelva el validador HTTP de la miniatura: la MISMA clave que usa la
+// caché en disco (versión incluida), así que cambia exactamente cuando la
+// miniatura que generaría el backend cambia — un 304 del navegador siempre
+// responde con los bytes actualizados tras un cambio de generación.
+func ETag(href, etag string, maxSize int) string {
+	return `"` + cacheKey(href, etag, maxSize) + `"`
+}
+
+// VideoETag: igual que ETag para el póster de vídeo (mismo prefijo "v" que
+// usa VideoPoster en su cache key).
+func VideoETag(href, etag string, maxSize int) string {
+	return `"v` + cacheKey(href, etag, maxSize) + `"`
+}
+
 // VideoPoster extrae un fotograma del vídeo con ffmpeg y lo cachea como JPEG.
 // Descarga el vídeo a un temporal (ffmpeg necesita poder buscar en el fichero).
 func (s *Service) VideoPoster(ctx context.Context, dav *webdav.Client, href, etag string, maxSize int) (string, error) {
