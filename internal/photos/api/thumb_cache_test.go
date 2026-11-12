@@ -31,7 +31,7 @@ func newThumbTestServer(t *testing.T, dav *webdav.Client) (*Server, *store.Store
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { st.Close() })
+	t.Cleanup(func() { _ = st.Close() })
 	fp := &fakeProvider{legacy: "legacy-owner", dav: dav}
 	s := New(st, th, nil, nil, fp,
 		Config{Token: "test-token", Secret: []byte("0123456789abcdef0123456789abcdef")},
