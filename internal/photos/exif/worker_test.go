@@ -60,13 +60,13 @@ func buildTiff(ifds ...[]tifTag) []byte {
 
 	out := &bytes.Buffer{}
 	out.WriteString("II")
-	binary.Write(out, binary.LittleEndian, uint16(42))
-	binary.Write(out, binary.LittleEndian, uint32(offs[0]))
+	must(binary.Write(out, binary.LittleEndian, uint16(42)))
+	must(binary.Write(out, binary.LittleEndian, uint32(offs[0])))
 
 	for i, tags := range ifds {
 		sorted := append([]tifTag(nil), tags...)
 		sort.Slice(sorted, func(a, b int) bool { return sorted[a].tag < sorted[b].tag })
-		binary.Write(out, binary.LittleEndian, uint16(len(sorted)))
+		must(binary.Write(out, binary.LittleEndian, uint16(len(sorted))))
 		// área de valores de este IFD, justo tras su tabla
 		valAt := offs[i] + 2 + len(sorted)*12 + 4
 		vals := &bytes.Buffer{}
@@ -77,9 +77,9 @@ func buildTiff(ifds ...[]tifTag) []byte {
 				typ, data = 4, make([]byte, 4)
 				binary.LittleEndian.PutUint32(data, uint32(offs[t.ifd]))
 			}
-			binary.Write(out, binary.LittleEndian, t.tag)
-			binary.Write(out, binary.LittleEndian, typ)
-			binary.Write(out, binary.LittleEndian, uint32(len(data)/tifElemSize[typ]))
+			must(binary.Write(out, binary.LittleEndian, t.tag))
+			must(binary.Write(out, binary.LittleEndian, typ))
+			must(binary.Write(out, binary.LittleEndian, uint32(len(data)/tifElemSize[typ])))
 			if len(data) <= 4 {
 				// en línea: los bytes van al principio del campo
 				var f [4]byte
@@ -87,13 +87,13 @@ func buildTiff(ifds ...[]tifTag) []byte {
 				out.Write(f[:])
 				continue
 			}
-			binary.Write(out, binary.LittleEndian, uint32(valAt+vals.Len()))
+			must(binary.Write(out, binary.LittleEndian, uint32(valAt+vals.Len())))
 			vals.Write(data)
 			if vals.Len()%2 != 0 {
 				vals.WriteByte(0)
 			}
 		}
-		binary.Write(out, binary.LittleEndian, uint32(0)) // sin IFD siguiente
+		must(binary.Write(out, binary.LittleEndian, uint32(0))) // sin IFD siguiente
 		out.Write(vals.Bytes())
 	}
 	return out.Bytes()
@@ -315,7 +315,7 @@ func davServer(t *testing.T, serve func(end int64) []byte) (*webdav.Client, *int
 		w.Header().Set("Content-Type", "image/heic")
 		w.Header().Set("Content-Range", "bytes 0-"+itoa(int64(len(data))-1)+"/"+itoa(int64(len(data))))
 		w.WriteHeader(http.StatusPartialContent)
-		w.Write(data)
+		_, _ = w.Write(data)
 	}))
 	t.Cleanup(srv.Close)
 	return webdav.New(srv.URL, "u", "t"), &count
@@ -435,5 +435,13 @@ func TestProcessOneNoExif(t *testing.T) {
 	}
 	if a.Camera != "" || a.Lat != nil {
 		t.Errorf("PNG: no debe llevar EXIF: camera=%q lat=%v", a.Camera, a.Lat)
+	}
+}
+
+// must: helper para fixture bytes; un fallo de escritura en memoria es un bug
+// del test, no del código bajo prueba.
+func must(err error) {
+	if err != nil {
+		panic(err)
 	}
 }
